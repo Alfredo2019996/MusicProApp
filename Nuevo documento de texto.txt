@@ -1,0 +1,5 @@
+Back-End: Node.jscon Express
+
+Front-End: React
+
+Base de Datos: PostgreSQL con su motor nativo

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACADEMY ALFREDO MUSIC PRO</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="formulario-registro">
+        <form id="formulario-registro" action="/register" class="form" method="post">
+            <h1 class="title">Regístrate</h1>
+        
+            <div class="inputContainer">
+                <input type="email" class="input" name="email" placeholder="Correo electrónico" required>
+                <label for="" class="label">Email</label>
+            </div>
+        
+            <div class="inputContainer">
+                <input type="text" class="input" name="username" placeholder="Nombre de usuario" required>
+                <label for="" class="label">Nombre de usuario</label>
+            </div>
+        
+            <div class="inputContainer">
+                <input type="password" class="input" name="password" placeholder="Contraseña" required>
+                <label for="" class="label">Contraseña</label>
+            </div>
+        
+            <div class="inputContainer">
+                <input type="password" class="input" name="confirm_password" placeholder="Confirmar Contraseña" required>
+                <label for="" class="label">Confirmar Contraseña</label>
+            </div>
+            
+            <div>
+                <input type="hidden" class="input" name="date" id="fecha_registro">
+            </div>
+        
+            <div id="error-message" style="color: red;"></div> <!-- Elemento para mostrar el mensaje de error -->
+        
+            <input type="submit" class="submitBtn" value="Regístrate">
+        </form>
+                  
+        <p>¿Ya tienes cuenta? <a href="/">Inicia sesión</a></p>
+    </div>
+    <script>
+        // Obtener los datos del formulario
+        const datosform = document.getElementById('formulario-registro');
+        const fechaRegistro = document.getElementById('fecha_registro');
+    
+        // Obtener la fecha actual
+        const hoy = new Date();
+        const fechaFormateada = hoy.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    
+        // Asignar la fecha al campo oculto
+        fechaRegistro.value = fechaFormateada;
+    
+        // Opcional: Asegurarse de que la fecha se actualice antes de enviar el formulario
+        datosform.addEventListener('submit', function() {
+            fechaRegistro.value = fechaFormateada;
+        });
+
+        document.getElementById('formulario-registro').addEventListener('submit', function(event) {
+            event.preventDefault(); 
+    
+            const form = event.target;
+            const formData = new FormData(form);
+            const errorMessage = document.getElementById('error-message');
+    
+            fetch('/register', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    errorMessage.textContent = data.error; // Mostrar el mensaje de error
+                } else {
+                    window.location.href = '/login'; // Redirigir al login si el registro es exitoso
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessage.textContent = 'Error, el usuario ya existe ';
+            });
+        });
+    </script>
+</body>
+</html>
