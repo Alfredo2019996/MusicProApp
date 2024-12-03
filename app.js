@@ -1,130 +1,185 @@
+// Importar dependencias
 const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
-const session = require('express-session'); 
-const db = require('./db'); // Importar la conexión a la base de datos
+const session = require('express-session');
+const mysql = require('mysql2');
+require('dotenv').config(); // Cargar variables de entorno desde el archivo .env
 const app = express();
 const port = 3000;
+
+// Configurar la base de datos con variables de entorno
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: 'Alfredo201904', // Usa la contraseña configurada en el archivo .env
+  database: 'musicpro',
+});
+
+db.connect((err) => {
+  if (err) {
+    console.error('Error de conexión a la base de datos:', err);
+    return;
+  }
+  console.log('Conexión a la base de datos establecida');
+});
 
 // Configurar el motor de plantillas
 app.set('view engine', 'ejs');
 
-// Middleware para manejar datos de formularios
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Middleware de sesión
-app.use(session({
-    secret: 'el_secreto',
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } // Cambiar a true en producción con HTTPS
-}));
-
-// Servir archivos estáticos
+// Configurar la carpeta pública para archivos estáticos (CSS, imágenes, JS)
 app.use(express.static('public'));
 
-// Middleware para verificar si el usuario está autenticado
+// Middleware para manejar datos de formularios
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Middleware de sesión
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'el_secreto', // Usa un secreto de sesión seguro
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }, // Cambiar a true en producción con HTTPS
+  })
+);
+
+// Middleware para verificar sesión de usuario
 function loginRequired(req, res, next) {
-    if (req.session && req.session.userId) {
-        return next();
-    } else {
-        res.redirect('/');
-    }
+  console.log('Middleware loginRequired - Sesión:', req.session);
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  next();
 }
 
-// Ruta principal
+
 app.get('/', (req, res) => {
-    res.render('index');
+  res.render('index');
+});
+
+
+// Ruta principal
+app.get('/login', (req, res) => {
+  res.render('login');
 });
 
 // Ruta para el registro
 app.get('/register', (req, res) => {
-    res.render('register');
+  res.render('register');
 });
 
 // Ruta para el menú (protegida)
 app.get('/menu', loginRequired, (req, res) => {
-    res.render('menu');
+  try {
+    res.render('menu', { username: req.session.username });
+  } catch (error) {
+    console.error('Error al renderizar el menú:', error);
+    res.status(500).send('Error al cargar el menú.');
+  }
 });
 
-// Ruta para cerrar sesión
-app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            console.error('Error al cerrar sesión:', err);
-            res.status(500).send('Error al cerrar sesión');
-        } else {
-            res.redirect('/');
-        }
-    });
-});
-
-// Ruta para el inicio de sesión
+// Ruta para manejar el formulario de inicio de sesión
 app.post('/login', (req, res) => {
-    const { email, password } = req.body;
-    const query = 'SELECT id_usuario, nombre, email, contraseña FROM usuarios WHERE email = ?';
+  const { email, password } = req.body;
 
-    db.query(query, [email], (err, results) => {
-        if (err) {
-            console.error('Error al iniciar sesión:', err);
-            res.status(500).send('Error al iniciar sesión');
-        } else if (results.length === 0) {
-            res.status(401).send('Email o contraseña incorrectos');
-        } else {
-            const hashedPassword = results[0].contraseña;
-            bcrypt.compare(password, hashedPassword, (err, isMatch) => {
-                if (err) {
-                    console.error('Error al comparar la contraseña:', err);
-                    res.status(500).send('Error al iniciar sesión');
-                } else if (!isMatch) {
-                    res.status(401).send('Email o contraseña incorrectos');
-                } else {
-                    req.session.userId = results[0].id_usuario;
-                    res.redirect('/menu');
-                }
-            });
-        }
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Por favor, ingresa ambos campos.' });
+  }
+  
+  // Consultamos la base de datos para verificar si el email existe
+  const query = 'SELECT * FROM usuarios WHERE email = ?';
+  db.query(query, [email], (err, results) => {
+    if (err) {
+      console.error('Error al buscar el usuario:', err);
+      return res.status(500).json({ error: 'Hubo un problema en el servidor.' });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'Correo electrónico no encontrado.' });
+    }
+
+    const user = results[0];
+    console.log(user)
+    // Verificamos la contraseña
+    bcrypt.compare(password, user.contraseña, (err, isMatch) => {
+      if (err) {
+        console.error('Error al comparar contraseñas:', err);
+        return res.status(500).json({ error: 'Error en el servidor.' });
+      }
+
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Contraseña incorrecta.' });
+      }
+
+      // Creamos una sesión para el usuario
+      req.session.userId = user.id; // Guardamos el ID del usuario en la sesión
+      req.session.username = user.nombre; // Guardamos el nombre del usuario (opcional)
+
+      // Redirigimos al menú
+      console.log('Redirigiendo al menú');
+      res.redirect('/menu');
     });
+  });
 });
 
 // Ruta para el registro de usuarios
 const saltRounds = 10; // Número de rondas de sal para el hashing
 app.post('/register', (req, res) => {
-    const { username, email, password, date } = req.body;
+  const { username, email, password, date } = req.body;
 
-    // Verificar si el email ya existe
-    const checkEmailQuery = 'SELECT email FROM usuarios WHERE email = ?';
-    db.query(checkEmailQuery, [email], (err, results) => {
+  if (!username || !email || !password || !date) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  const checkEmailQuery = 'SELECT email FROM usuarios WHERE email = ?';
+  db.query(checkEmailQuery, [email], (err, results) => {
+    if (err) {
+      console.error('Error al verificar el email:', err);
+      return res.status(500).json({
+        error: 'Hubo un problema al verificar tu correo. Por favor intenta más tarde.',
+      });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({
+        error: 'El email ya está registrado. Por favor utiliza otro correo.',
+      });
+    }
+
+    bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+      if (err) {
+        console.error('Error al hashear la contraseña:', err);
+        return res.status(500).json({ error: 'Error en el servidor' });
+      }
+
+      const insertUserQuery =
+        'INSERT INTO usuarios (nombre, email, contraseña, fecha_registro) VALUES (?, ?, ?, ?)';
+      db.query(insertUserQuery, [username, email, hashedPassword, date], (err, results) => {
         if (err) {
-            console.error('Error al verificar el email:', err);
-            res.status(500).json({ error: 'Error al registrar el usuario' });
-        } else if (results.length > 0) {
-            res.status(400).json({ error: 'El email ya está registrado' });
-        } else {
-            // Hashear la contraseña
-            bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
-                if (err) {
-                    console.error('Error al hashear la contraseña:', err);
-                    res.status(500).json({ error: 'Error al registrar el usuario' });
-                } else {
-                    const insertUserQuery = 'INSERT INTO usuarios (nombre, email, contraseña, fecha_registro) VALUES (?, ?, ?, ?)';
-                    db.query(insertUserQuery, [username, email, hashedPassword, date], (err, results) => {
-                        if (err) {
-                            console.error('Error al registrar el usuario:', err);
-                            res.status(500).json({ error: 'Error al registrar el usuario, el usuario ya existe.' });
-                        } else {
-                            res.status(200).json({ success: 'Usuario registrado exitosamente' });
-                        }
-                    });
-                }
-            });
+          console.error('Error al registrar el usuario:', err);
+          return res.status(500).json({ error: 'Error al registrar el usuario' });
         }
+        return res.redirect('/login')
+
+      });
     });
+  });
 });
 
-
+// Ruta para cerrar sesión
+app.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error al cerrar sesión:', err);
+      res.status(500).send('Error al cerrar sesión');
+    } else {
+      res.redirect('/'); // Redirige al inicio después de cerrar sesión
+    }
+  });
+});
 
 // Iniciar el servidor
 app.listen(port, () => {
-    console.log(`Servidor corriendo en http://localhost:${port}`);
+  console.log(`Servidor corriendo en http://localhost:${port}`);
 });

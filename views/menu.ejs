@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACADEMY ALFREDO MUSIC PRO - Menú</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  
+
   <header>
-    <img src="/Alfredo.png.webp" class="img">
+    <img src="/Alfredo.png.webp" class="img" alt="Logo de Alfredo Music Pro">
   
     <div class="nav">
       <div class="submenu"> 
@@ -18,7 +18,7 @@
         <div class="sublinks">
           <a href="https://youtube.com/@alfredomusicpro2019?si=aM6gUKHR9MiRyxPq" target="_blank">Youtube</a>
           <a href="https://www.instagram.com/alfredomusicpro19?igsh=cTJuN2Rwcmw4cm50" target="_blank">Instagram</a>
-          <a href="https://www.facebook.com/profile.php?id=100086920603080" target="_blank" >Facebook</a>
+          <a href="https://www.facebook.com/profile.php?id=100086920603080" target="_blank">Facebook</a>
         </div>
       </div>
       <div class="submenu contacto-submenu"> 
@@ -27,12 +27,27 @@
           <a href="https://wa.me/message/ZYYFQA6A5WK3C1" target="_blank">Mi WhatsApp</a>
         </div>
       </div>
-      <a href="#">Producto</a>
+      
+      <!-- Enlace directo a productos -->
+      <a href="/productos" id="productosLink">Producto</a>
     </div>
-    <a href="/" class="boton-icono">
+
+    <!-- Botón de cierre de sesión -->
+    <a href="/logout" class="boton-icono">
       <i class="fas fa-right-to-bracket icono-grande"></i>
     </a>    
   </header>
+
+  <main>
+    <h1>Bienvenido, <%= username %>!</h1>
+    <button id="redirectBtn" class="boton-redirect">Ir a Productos</button>
+  </main>
+
+  <script>
+    // Redirección con JavaScript
+    document.getElementById('redirectBtn').addEventListener('click', () => {
+      window.location.href = '/productos'; // Ruta a la página de productos
+    });
+  </script>
 </body>
 </html>
-
